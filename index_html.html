@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>index.html - DC 커뮤니티 P2P</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- GunDB P2P Realtime Database -->
+    <script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+    <!-- Google Fonts Noto Sans KR -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+        body { 
+            font-family: 'Noto Sans KR', sans-serif; 
+            background-color: #f4f5f8; 
+            color: #333;
+        }
+        .dc-bg-blue { background-color: #3b4890; }
+        .dc-text-blue { color: #3b4890; }
+        .dc-border-blue { border-color: #3b4890; }
+        .dc-hover-blue:hover { background-color: #2e3975; }
+        
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #aaa; }
+        
+        .chat-bubble-me {
+            background-color: #ffe812;
+            color: #1c1c1c;
+            border-top-right-radius: 2px;
+        }
+        .chat-bubble-other {
+            background-color: #ffffff;
+            color: #1c1c1c;
+            border-top-left-radius: 2px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- App Main Wrapper -->
+    <div id="app" class="min-h-screen flex flex-col">
+        
+        <!-- Header -->
+        <header class="dc-bg-blue text-white shadow-md sticky top-0 z-30">
+            <div class="max-w-7xl mx-auto px-4 h-14 flex justify-between items-center">
+                <!-- Brand & Nav -->
+                <div class="flex items-center space-x-6">
+                    <button onclick="app.setGallery('general')" class="flex items-center space-x-2 text-xl font-black tracking-tighter hover:opacity-90 transition">
+                        <i class="fas fa-network-wired text-yellow-400 text-2xl"></i>
+                        <span>DC <span class="text-yellow-400">P2P</span></span>
+                    </button>
+                    <nav class="hidden md:flex space-x-1 font-medium text-sm">
+                        <button onclick="app.changeView('board')" class="px-3 py-1.5 rounded hover:bg-white/10 transition flex items-center">
+                            <i class="fas fa-list-alt mr-1.5"></i> 갤러리
+                        </button>
+                        <button onclick="app.changeView('chat')" class="px-3 py-1.5 rounded hover:bg-white/10 transition flex items-center">
+                            <i class="fas fa-comments mr-1.5"></i> 전체 광장 채팅
+                        </button>
+                        <button onclick="app.openUserSearchModal()" class="px-3 py-1.5 rounded hover:bg-white/10 transition flex items-center text-yellow-300">
+                            <i class="fas fa-user-plus mr-1.5"></i> 친구 검색/추가
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- User Profile & Auth -->
+                <div class="flex items-center space-x-3 text-sm">
+                    <div id="user-status-badge" class="bg-indigo-900/60 border border-indigo-400/30 px-3 py-1 rounded-full flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse"></span>
+                        <span id="header-username" class="font-bold text-white text-xs md:text-sm">손님</span>
+                    </div>
+                    <button id="auth-btn" onclick="app.openAuthModal()" class="bg-white/10 hover:bg-white/20 px-3 py-1 rounded text-xs transition">
+                        로그인/가입
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mobile Sub Nav -->
+            <div class="md:hidden flex border-t border-indigo-700/50 bg-indigo-900/40 text-xs font-medium divide-x divide-indigo-700/50">
+                <button onclick="app.changeView('board')" class="flex-1 py-2 text-center text-white flex justify-center items-center">
+                    <i class="fas fa-list-alt mr-1"></i> 갤러리
+                </button>
+                <button onclick="app.changeView('chat')" class="flex-1 py-2 text-center text-white flex justify-center items-center">
+                    <i class="fas fa-comments mr-1"></i> 전체 채팅
+                </button>
+                <button onclick="app.openUserSearchModal()" class="flex-1 py-2 text-center text-yellow-300 flex justify-center items-center">
+                    <i class="fas fa-user-plus mr-1"></i> 친구 찾기
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="max-w-7xl mx-auto w-full flex-grow flex flex-col md:flex-row p-2 md:p-4 gap-4">
+            
+            <!-- Left Sidebar -->
+            <aside class="w-full md:w-64 flex-shrink-0 flex flex-col gap-4">
+                
+                <!-- Galleries List -->
+                <div class="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden">
+                    <div class="bg-gray-100 border-b border-gray-200 px-4 py-2.5 font-bold text-gray-700 text-sm flex items-center justify-between">
+                        <span><i class="fas fa-th-large text-indigo-700 mr-1.5"></i> 주요 갤러리</span>
+                    </div>
+                    <ul id="gallery-nav-list" class="divide-y divide-gray-100 text-sm">
+                        <!-- Dynamic items -->
+                    </ul>
+                </div>
+
+                <!-- Friend List -->
+                <div class="bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                    <div class="bg-gray-100 border-b border-gray-200 px-4 py-2.5 font-bold text-gray-700 text-sm flex justify-between items-center">
+                        <span><i class="fas fa-users text-indigo-700 mr-1.5"></i> 친구 목록</span>
+                        <button onclick="app.openUserSearchModal()" class="text-xs text-indigo-600 hover:underline">
+                            <i class="fas fa-search mr-0.5"></i> 검색
+                        </button>
+                    </div>
+                    <div id="friend-list-container" class="p-2 max-h-60 overflow-y-auto min-h-[100px]">
+                        <!-- Dynamic Friends -->
+                    </div>
+                </div>
+
+                <!-- Network Info Banner -->
+                <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-3 text-xs text-indigo-900 leading-relaxed">
+                    <p class="font-bold mb-1"><i class="fas fa-wifi text-green-600 mr-1"></i> P2P 서버리스 네트워크</p>
+                    <p class="text-indigo-700">외부 서버 구입 없이 사용자의 브라우저 간 분산 네트워크로 실시간 작동합니다.</p>
+                </div>
+            </aside>
+
+            <!-- Main Content Display -->
+            <section id="content-area" class="flex-grow min-w-0 bg-white border border-gray-300 rounded-lg shadow-sm overflow-hidden flex flex-col">
+                <!-- Views injected via JS -->
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-800 text-gray-400 text-xs py-4 border-t border-gray-700 mt-auto">
+            <div class="max-w-7xl mx-auto px-4 text-center">
+                <p>© 2026 DC Community P2P Network. Fully decentralized serverless architecture.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- MODALS SECTION -->
+    <!-- Authentication / Registration Modal -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="dc-bg-blue text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fas fa-user-circle mr-2"></i> 회원가입 및 로그인</h3>
+                <button onclick="app.closeModal('auth-modal')" class="text-white/80 hover:text-white"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <p class="text-xs text-gray-500 mb-4">입력한 아이디와 비밀번호로 암호화 키를 생성하여 별도 서버 없이도 동일한 계정을 이용할 수 있습니다.</p>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">아이디 / 닉네임</label>
+                        <input type="text" id="auth-username" maxlength="15" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="영문, 한글, 숫자 (2~12자)">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">비밀번호</label>
+                        <input type="password" id="auth-password" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="비밀번호 입력">
+                    </div>
+                    <div id="auth-error" class="text-red-500 text-xs hidden"></div>
+                    <button onclick="app.handleAuth()" class="w-full dc-bg-blue text-white font-bold py-2.5 rounded-lg hover:bg-indigo-800 transition shadow">
+                        로그인 / 계정 생성
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Search & Friend Modal -->
+    <div id="user-search-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+            <div class="dc-bg-blue text-white px-6 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-lg"><i class="fas fa-user-plus mr-2"></i> 친구 검색 및 추가</h3>
+                <button onclick="app.closeModal('user-search-modal')" class="text-white/80 hover:text-white"><i class="fas fa-times text-lg"></i></button>
+            </div>
+            <div class="p-6">
+                <div class="flex gap-2 mb-4">
+                    <input type="text" id="search-user-input" class="flex-grow border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="친구 닉네임 검색..." onkeypress="if(event.key==='Enter') app.searchUsers()">
+                    <button onclick="app.searchUsers()" class="dc-bg-blue text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-800 transition">
+                        검색
+                    </button>
+                </div>
+                <div id="search-results-container" class="border border-gray-200 rounded-lg max-h-60 overflow-y-auto divide-y divide-gray-100 min-h-[120px] p-2 bg-gray-50">
+                    <p class="text-xs text-gray-400 text-center py-8">친구의 닉네임을 입력하고 검색하세요.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 text-center">
+            <div class="text-3xl text-indigo-600 mb-3"><i class="fas fa-info-circle"></i></div>
+            <p id="custom-alert-msg" class="text-sm font-medium text-gray-800 mb-5 leading-snug"></p>
+            <button onclick="app.closeModal('custom-alert-modal')" class="w-full dc-bg-blue text-white py-2 rounded-lg text-sm font-bold hover:bg-indigo-800 transition">
+                확인
+            </button>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 hidden p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-xs p-5 text-center">
+            <div class="text-3xl text-amber-500 mb-3"><i class="fas fa-exclamation-triangle"></i></div>
+            <p id="custom-confirm-msg" class="text-sm font-medium text-gray-800 mb-5 leading-snug"></p>
+            <div class="flex gap-2">
+                <button onclick="app.handleConfirmResponse(false)" class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg text-sm font-bold hover:bg-gray-300 transition">취소</button>
+                <button onclick="app.handleConfirmResponse(true)" class="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-red-700 transition">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize GunDB with public P2P mesh relay peers
+        const gun = Gun({
+            peers: [
+                'https://gun-manhattan.herokuapp.com/gun',
+                'https://peer.wallie.io/gun',
+                'https://gun-matrix.herokuapp.com/gun'
+            ]
+        });
+
+        // App Core State
+        window.app = {
+            user: null, // { uid, username, nickname }
+            view: 'board',
+            currentGallery: 'general',
+            activeDmFriend: null,
+            galleries: {
+                'general': { name: '자유 갤러리', icon: 'fa-comments' },
+                'game': { name: '게임 갤러리', icon: 'fa-gamepad' },
+                'coding': { name: '코딩 갤러리', icon: 'fa-code' },
+                'humor': { name: '유머 갤러리', icon: 'fa-laugh-squint' }
+            },
+            selectedPostId: null,
+            data: {
+                users: {},
+                posts: {},
+                comments: {},
+                globalChat: {},
+                dms: {},
+                friends: {}
+            },
+            confirmCallback: null,
+
+            init: async function() {
+                // Restore session from localStorage if present
+                const savedUser = localStorage.getItem('dc_p2p_user');
+                if (savedUser) {
+                    try {
+                        this.user = JSON.parse(savedUser);
+                    } catch(e) {}
+                }
+
+                if (!this.user) {
+                    // Generate guest user
+                    const guestId = 'guest_' + Math.random().toString(36).substr(2, 8);
+                    this.user = {
+                        uid: guestId,
+                        username: '손님_' + Math.floor(1000 + Math.random() * 9000),
+                        nickname: '손님_' + Math.floor(1000 + Math.random() * 9000),
+                        isGuest: true
+                    };
+                }
+
+                this.updateUserUI();
+                this.setupP2PListeners();
+                this.renderGalleryNav();
+                this.render();
+
+                // Broadcast online presence
+                setInterval(() => {
+                    if (this.user && !this.user.isGuest) {
+                        gun.get('dc_p2p_users').get(this.user.uid).put({
+                            uid: this.user.uid,
+                            nickname: this.user.nickname,
+                            lastSeen: Date.now()
+                        });
+                    }
+                }, 15000);
+            },
+
+            handleAuth: async function() {
+                const username = document.getElementById('auth-username').value.trim();
+                const password = document.getElementById('auth-password').value.trim();
+                const errEl = document.getElementById('auth-error');
+
+                if (username.length < 2 || password.length < 3) {
+                    errEl.innerText = "아이디 2자 이상, 비밀번호 3자 이상 입력하세요.";
+                    errEl.classList.remove('hidden');
+                    return;
+                }
+
+                // Deterministic UID creation using SHA-256 hash (No server required!)
+                const encoder = new TextEncoder();
+                const data = encoder.encode(username.toLowerCase() + '::' + password);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const uid = 'usr_' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+
+                this.user = {
+                    uid: uid,
+                    username: username,
+                    nickname: username,
+                    isGuest: false
+                };
+
+                localStorage.setItem('dc_p2p_user', JSON.stringify(this.user));
+
+                // Save user profile to Gun P2P network
+                gun.get('dc_p2p_users').get(uid).put({
+                    uid: uid,
+                    nickname: username,
+                    lastSeen: Date.now()
+                });
+
+                this.closeModal('auth-modal');
+                this.updateUserUI();
+                this.showAlert(`'${username}' 계정으로 접속되었습니다.`);
+            },
+
+            updateUserUI: function() {
+                const headerUsername = document.getElementById('header-username');
+                const authBtn = document.getElementById('auth-btn');
+
+                if (this.user.isGuest) {
+                    headerUsername.innerText = this.user.nickname;
+                    authBtn.innerText = '로그인/가입';
+                    authBtn.onclick = () => this.openAuthModal();
+                } else {
+                    headerUsername.innerText = this.user.nickname;
+                    authBtn.innerText = '로그아웃';
+                    authBtn.onclick = () => this.logout();
+                }
+            },
+
+            logout: function() {
+                localStorage.removeItem('dc_p2p_user');
+                this.user = null;
+                this.init();
+                this.showAlert("로그아웃 되었습니다.");
+            },
+
+            setupP2PListeners: function() {
+                // 1. Sync Users
+                gun.get('dc_p2p_users').map().on((data, id) => {
+                    if (data && data.uid) {
+                        this.data.users[data.uid] = data;
+                        this.renderFriendList();
+                    }
+                });
+
+                // 2. Sync Posts
+                gun.get('dc_p2p_posts').map().on((data, id) => {
+                    if (data && data.id) {
+                        this.data.posts[data.id] = data;
+                        if (this.view === 'board' || this.view === 'read') this.render();
+                    }
+                });
+
+                // 3. Sync Comments
+                gun.get('dc_p2p_comments').map().on((data, id) => {
+                    if (data && data.id) {
+                        this.data.comments[data.id] = data;
+                        if (this.view === 'read') this.render();
+                    }
+                });
+
+                // 4. Sync Global Chat
+                gun.get('dc_p2p_chat').map().on((data, id) => {
+                    if (data && data.id) {
+                        this.data.globalChat[data.id] = data;
+                        if (this.view === 'chat') this.renderGlobalChatMessages();
+                    }
+                });
+
+                // 5. Sync DMs
+                gun.get('dc_p2p_dms').map().on((data, id) => {
+                    if (data && data.id) {
+                        this.data.dms[data.id] = data;
+                        if (this.view === 'dm') this.renderDmMessages();
+                    }
+                });
+
+                // 6. Sync Friends Relations
+                gun.get('dc_p2p_friends').map().on((data, id) => {
+                    if (data && data.uids) {
+                        this.data.friends[id] = data;
+                        this.renderFriendList();
+                    }
+                });
+            },
+
+            changeView: function(newView, postId = null) {
+                this.view = newView;
+                this.selectedPostId = postId;
+                this.render();
+            },
+
+            setGallery: function(galleryKey) {
+                this.currentGallery = galleryKey;
+                this.view = 'board';
+                this.renderGalleryNav();
+                this.render();
+            },
+
+            renderGalleryNav: function() {
+                const navContainer = document.getElementById('gallery-nav-list');
+                if (!navContainer) return;
+
+                navContainer.innerHTML = Object.keys(this.galleries).map(key => {
+                    const g = this.galleries[key];
+                    const isActive = this.currentGallery === key && this.view === 'board';
+                    return `
+                        <li>
+                            <button onclick="app.setGallery('${key}')" class="w-full px-4 py-2.5 text-left flex items-center justify-between transition ${
+                                isActive ? 'bg-indigo-50 text-indigo-800 font-bold border-l-4 border-indigo-700' : 'text-gray-600 hover:bg-gray-50'
+                            }">
+                                <span><i class="fas ${g.icon} mr-2 text-xs"></i> ${g.name}</span>
+                                <i class="fas fa-chevron-right text-[10px] opacity-40"></i>
+                            </button>
+                        </li>
+                    `;
+                }).join('');
+            },
+
+            render: function() {
+                const contentArea = document.getElementById('content-area');
+                if (!contentArea) return;
+
+                switch(this.view) {
+                    case 'board':
+                        contentArea.innerHTML = this.getBoardViewHTML();
+                        break;
+                    case 'read':
+                        contentArea.innerHTML = this.getReadViewHTML();
+                        break;
+                    case 'write':
+                        contentArea.innerHTML = this.getWriteViewHTML();
+                        break;
+                    case 'chat':
+                        contentArea.innerHTML = this.getGlobalChatViewHTML();
+                        this.renderGlobalChatMessages();
+                        break;
+                    case 'dm':
+                        contentArea.innerHTML = this.getDmViewHTML();
+                        this.renderDmMessages();
+                        break;
+                }
+            },
+
+            getBoardViewHTML: function() {
+                const galleryInfo = this.galleries[this.currentGallery] || { name: '게시판' };
+                const postsList = Object.values(this.data.posts)
+                    .filter(p => p.gallery === this.currentGallery)
+                    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+                const rowsHtml = postsList.length === 0 ? `
+                    <tr>
+                        <td colspan="5" class="py-12 text-center text-gray-400 text-sm">
+                            <i class="fas fa-inbox text-3xl mb-2 block opacity-50"></i>
+                            등록된 게시글이 없습니다. 첫 글을 작성해 보세요!
+                        </td>
+                    </tr>
+                ` : postsList.map((post, idx) => {
+                    const commentCount = Object.values(this.data.comments).filter(c => c.postId === post.id).length;
+                    const commentBadge = commentCount > 0 ? `<span class="text-xs font-bold text-red-500 ml-1.5">[${commentCount}]</span>` : '';
+                    const likeBadge = (post.likes || 0) > 0 ? `<span class="text-xs text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded ml-2"><i class="far fa-thumbs-up"></i> ${post.likes}</span>` : '';
+
+                    return `
+                        <tr class="border-b border-gray-100 hover:bg-indigo-50/40 cursor-pointer transition text-sm" onclick="app.changeView('read', '${post.id}')">
+                            <td class="py-3 px-3 text-center text-gray-400 text-xs hidden sm:table-cell">${postsList.length - idx}</td>
+                            <td class="py-3 px-3">
+                                <div class="font-medium text-gray-800 hover:text-indigo-700 truncate max-w-xs sm:max-w-md lg:max-w-lg">
+                                    ${this.escapeHTML(post.title)} ${commentBadge} ${likeBadge}
+                                </div>
+                            </td>
+                            <td class="py-3 px-3 text-center text-gray-600 font-medium text-xs truncate max-w-[90px]">${this.escapeHTML(post.authorName)}</td>
+                            <td class="py-3 px-3 text-center text-gray-400 text-xs">${this.formatDate(post.createdAt)}</td>
+                            <td class="py-3 px-3 text-center text-gray-400 text-xs hidden md:table-cell">${post.views || 0}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="p-4 md:p-6 flex flex-col h-full">
+                        <div class="flex justify-between items-center pb-4 mb-4 border-b border-gray-200">
+                            <div>
+                                <h2 class="text-xl md:text-2xl font-black dc-text-blue flex items-center">
+                                    <i class="fas ${galleryInfo.icon || 'fa-comments'} mr-2"></i> ${galleryInfo.name}
+                                </h2>
+                                <p class="text-xs text-gray-500 mt-1">서버 호스팅 없이 실시간 공유되는 P2P 갤러리입니다.</p>
+                            </div>
+                            <button onclick="app.changeView('write')" class="dc-bg-blue text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-800 transition shadow flex items-center">
+                                <i class="fas fa-pencil-alt mr-1.5"></i> 글쓰기
+                            </button>
+                        </div>
+
+                        <div class="overflow-x-auto rounded-lg border border-gray-200">
+                            <table class="w-full text-left border-collapse">
+                                <thead class="bg-gray-50 border-b border-gray-200 text-xs text-gray-500 font-bold">
+                                    <tr>
+                                        <th class="py-2.5 px-3 text-center w-14 hidden sm:table-cell">번호</th>
+                                        <th class="py-2.5 px-3">제목</th>
+                                        <th class="py-2.5 px-3 text-center w-28">글쓴이</th>
+                                        <th class="py-2.5 px-3 text-center w-20">작성일</th>
+                                        <th class="py-2.5 px-3 text-center w-16 hidden md:table-cell">조회</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rowsHtml}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+            },
+
+            getReadViewHTML: function() {
+                const post = this.data.posts[this.selectedPostId];
+                if (!post) {
+                    return `
+                        <div class="p-12 text-center text-gray-500">
+                            <i class="fas fa-exclamation-circle text-4xl mb-3 text-gray-300"></i>
+                            <p class="font-bold">존재하지 않거나 삭제된 게시글입니다.</p>
+                            <button onclick="app.changeView('board')" class="mt-4 dc-bg-blue text-white px-4 py-2 rounded-lg text-xs font-bold">
+                                목록으로 돌아가기
+                            </button>
+                        </div>
+                    `;
+                }
+
+                const comments = Object.values(this.data.comments)
+                    .filter(c => c.postId === post.id)
+                    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+                const isAuthor = post.authorUid === this.user.uid;
+
+                const commentsListHtml = comments.length === 0 ? `
+                    <p class="text-xs text-gray-400 py-6 text-center">등록된 댓글이 없습니다. 첫 댓글을 달아보세요!</p>
+                ` : comments.map(c => `
+                    <div class="py-3 border-b border-gray-100 flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="font-bold text-xs text-gray-800">${this.escapeHTML(c.authorName)}</span>
+                                <span class="text-[10px] text-gray-400">${this.formatFullDate(c.createdAt)}</span>
+                            </div>
+                            <p class="text-sm text-gray-700 whitespace-pre-wrap">${this.escapeHTML(c.content)}</p>
+                        </div>
+                        ${c.authorUid === this.user.uid ? `
+                            <button onclick="app.deleteComment('${c.id}')" class="text-xs text-red-400 hover:text-red-600">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="p-4 md:p-6 flex flex-col h-full">
+                        <div class="border-b border-gray-200 pb-4 mb-4">
+                            <h1 class="text-xl md:text-2xl font-bold text-gray-900 mb-2 leading-snug">${this.escapeHTML(post.title)}</h1>
+                            <div class="flex justify-between items-center text-xs text-gray-500">
+                                <div>
+                                    <span class="font-bold text-gray-700 mr-2"><i class="fas fa-user-circle mr-1"></i> ${this.escapeHTML(post.authorName)}</span>
+                                    <span>${this.formatFullDate(post.createdAt)}</span>
+                                </div>
+                                <div>
+                                    <span>추천 ${post.likes || 0}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="min-h-[180px] text-gray-800 text-sm md:text-base leading-relaxed whitespace-pre-wrap mb-8">
+                            ${this.escapeHTML(post.content)}
+                        </div>
+
+                        <div class="flex justify-center mb-8">
+                            <button onclick="app.likePost('${post.id}')" class="flex items-center space-x-2 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 px-5 py-2.5 rounded-full font-bold text-sm transition">
+                                <i class="fas fa-thumbs-up"></i>
+                                <span>추천 ${post.likes || 0}</span>
+                            </button>
+                        </div>
+
+                        <div class="flex justify-between items-center border-t border-b border-gray-200 py-3 mb-6 bg-gray-50/50 px-3 rounded-lg">
+                            <button onclick="app.changeView('board')" class="bg-white border border-gray-300 text-gray-700 px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-gray-100 transition">
+                                <i class="fas fa-list mr-1"></i> 목록
+                            </button>
+                            ${isAuthor ? `
+                                <button onclick="app.deletePost('${post.id}')" class="bg-red-50 text-red-600 border border-red-200 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition">
+                                    <i class="fas fa-trash-alt mr-1"></i> 글 삭제
+                                </button>
+                            ` : ''}
+                        </div>
+
+                        <!-- Comment Section -->
+                        <div class="mt-auto">
+                            <h3 class="font-bold text-sm text-gray-800 mb-3 flex items-center">
+                                <i class="fas fa-comments text-indigo-600 mr-1.5"></i> 댓글 <span class="text-red-500 ml-1">${comments.length}</span>
+                            </h3>
+                            <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 mb-4">
+                                <textarea id="comment-input" rows="2" class="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none bg-white" placeholder="건전한 댓글을 입력하세요."></textarea>
+                                <div class="flex justify-end mt-2">
+                                    <button onclick="app.submitComment('${post.id}')" class="dc-bg-blue text-white px-4 py-1.5 rounded-lg text-xs font-bold hover:bg-indigo-800 transition">
+                                        댓글 등록
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="divide-y divide-gray-100">
+                                ${commentsListHtml}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            getWriteViewHTML: function() {
+                const galleryInfo = this.galleries[this.currentGallery] || { name: '게시판' };
+
+                return `
+                    <div class="p-4 md:p-6 flex flex-col h-full">
+                        <div class="border-b border-gray-200 pb-3 mb-4">
+                            <h2 class="text-xl font-bold text-gray-800">
+                                <i class="fas fa-pen-nib text-indigo-600 mr-2"></i> ${galleryInfo.name} - 글쓰기
+                            </h2>
+                        </div>
+
+                        <div class="space-y-4 flex-grow flex flex-col">
+                            <div>
+                                <label class="block text-xs font-bold text-gray-700 mb-1">제목</label>
+                                <input type="text" id="write-title" class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="제목을 입력하세요 (최대 50자)" maxlength="50">
+                            </div>
+
+                            <div class="flex-grow flex flex-col">
+                                <label class="block text-xs font-bold text-gray-700 mb-1">내용</label>
+                                <textarea id="write-content" class="w-full flex-grow border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none min-h-[250px]" placeholder="자유롭게 글을 작성해주세요."></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center border-t border-gray-200 pt-4 mt-4">
+                            <button onclick="app.changeView('board')" class="bg-gray-100 text-gray-700 px-5 py-2 rounded-lg text-sm font-bold hover:bg-gray-200 transition">
+                                취소
+                            </button>
+                            <button onclick="app.submitPost()" class="dc-bg-blue text-white px-6 py-2 rounded-lg text-sm font-bold hover:bg-indigo-800 transition shadow">
+                                게시글 등록
+                            </button>
+                        </div>
+                    </div>
+                `;
+            },
+
+            getGlobalChatViewHTML: function() {
+                return `
+                    <div class="flex flex-col h-[75vh] md:h-full bg-gray-100">
+                        <div class="dc-bg-blue text-white px-4 py-3 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-comments text-yellow-400 text-lg"></i>
+                                <span class="font-bold text-base">실시간 P2P 광장 채팅</span>
+                            </div>
+                            <span class="text-xs bg-indigo-900/80 px-2.5 py-1 rounded-full text-indigo-200 font-medium">
+                                <i class="fas fa-wifi text-green-400 mr-1 text-[10px]"></i> 분산 연결됨
+                            </span>
+                        </div>
+
+                        <div id="global-chat-container" class="flex-grow p-4 overflow-y-auto space-y-3 bg-[#a0b1c6]">
+                            <!-- Chat Bubbles -->
+                        </div>
+
+                        <div class="bg-white p-3 border-t border-gray-200">
+                            <div class="flex gap-2">
+                                <input type="text" id="global-chat-input" class="flex-grow border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="메시지를 입력하세요..." onkeypress="if(event.key==='Enter') app.submitGlobalChat()">
+                                <button onclick="app.submitGlobalChat()" class="dc-bg-blue text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-indigo-800 transition shadow flex-shrink-0">
+                                    <i class="fas fa-paper-plane text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderGlobalChatMessages: function() {
+                const container = document.getElementById('global-chat-container');
+                if (!container) return;
+
+                const chatList = Object.values(this.data.globalChat)
+                    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0))
+                    .slice(-100);
+
+                let lastAuthor = null;
+
+                container.innerHTML = chatList.map(msg => {
+                    const isMe = msg.authorUid === this.user.uid;
+                    const showName = lastAuthor !== msg.authorUid;
+                    lastAuthor = msg.authorUid;
+                    const timeStr = this.formatTime(msg.createdAt);
+
+                    if (isMe) {
+                        return `
+                            <div class="flex justify-end items-end gap-1.5">
+                                <span class="text-[10px] text-gray-600 mb-1">${timeStr}</span>
+                                <div class="chat-bubble-me px-3.5 py-2 rounded-2xl shadow-sm text-sm max-w-[75%] break-words">
+                                    ${this.escapeHTML(msg.text)}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="flex flex-col items-start">
+                                ${showName ? `<span class="text-xs font-bold text-gray-700 mb-1 ml-1">${this.escapeHTML(msg.authorName)}</span>` : ''}
+                                <div class="flex items-end gap-1.5">
+                                    <div class="chat-bubble-other px-3.5 py-2 rounded-2xl shadow-sm text-sm max-w-[75%] break-words">
+                                        ${this.escapeHTML(msg.text)}
+                                    </div>
+                                    <span class="text-[10px] text-gray-600 mb-1">${timeStr}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                }).join('');
+
+                container.scrollTop = container.scrollHeight;
+            },
+
+            getDmViewHTML: function() {
+                const friend = this.activeDmFriend;
+                if (!friend) return `<div class="p-10 text-center text-gray-400">대화할 친구를 선택해 주세요.</div>`;
+
+                return `
+                    <div class="flex flex-col h-[75vh] md:h-full bg-gray-100">
+                        <div class="bg-indigo-900 text-white px-4 py-3 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center space-x-2">
+                                <i class="fas fa-paper-plane text-yellow-300"></i>
+                                <span class="font-bold text-base">${this.escapeHTML(friend.nickname)}님과의 1:1 대화</span>
+                            </div>
+                            <button onclick="app.changeView('board')" class="text-xs bg-white/10 hover:bg-white/20 px-3 py-1 rounded">
+                                <i class="fas fa-times mr-1"></i> 닫기
+                            </button>
+                        </div>
+
+                        <div id="dm-chat-container" class="flex-grow p-4 overflow-y-auto space-y-3 bg-[#b2c7d9]">
+                            <!-- DM Bubbles -->
+                        </div>
+
+                        <div class="bg-white p-3 border-t border-gray-200">
+                            <div class="flex gap-2">
+                                <input type="text" id="dm-chat-input" class="flex-grow border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500" placeholder="1:1 비밀 메시지 입력..." onkeypress="if(event.key==='Enter') app.submitDm()">
+                                <button onclick="app.submitDm()" class="dc-bg-blue text-white w-10 h-10 rounded-full flex items-center justify-center hover:bg-indigo-800 transition shadow flex-shrink-0">
+                                    <i class="fas fa-paper-plane text-sm"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            },
+
+            renderDmMessages: function() {
+                const container = document.getElementById('dm-chat-container');
+                const friend = this.activeDmFriend;
+                if (!container || !friend) return;
+
+                const roomId = [this.user.uid, friend.uid].sort().join('_');
+                const dms = Object.values(this.data.dms)
+                    .filter(m => m.chatRoomId === roomId)
+                    .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+
+                container.innerHTML = dms.length === 0 ? `
+                    <div class="text-center py-10 text-gray-500 text-xs">
+                        ${friend.nickname}님과의 1:1 메시지가 시작되었습니다.<br>메시지를 전송해 보세요!
+                    </div>
+                ` : dms.map(msg => {
+                    const isMe = msg.senderUid === this.user.uid;
+                    const timeStr = this.formatTime(msg.createdAt);
+
+                    if (isMe) {
+                        return `
+                            <div class="flex justify-end items-end gap-1.5">
+                                <span class="text-[10px] text-gray-600 mb-1">${timeStr}</span>
+                                <div class="chat-bubble-me px-3.5 py-2 rounded-2xl shadow-sm text-sm max-w-[75%] break-words">
+                                    ${this.escapeHTML(msg.text)}
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        return `
+                            <div class="flex justify-start items-end gap-1.5">
+                                <div class="chat-bubble-other px-3.5 py-2 rounded-2xl shadow-sm text-sm max-w-[75%] break-words">
+                                    ${this.escapeHTML(msg.text)}
+                                </div>
+                                <span class="text-[10px] text-gray-600 mb-1">${timeStr}</span>
+                            </div>
+                        `;
+                    }
+                }).join('');
+
+                container.scrollTop = container.scrollHeight;
+            },
+
+            openUserSearchModal: function() {
+                document.getElementById('search-user-input').value = '';
+                document.getElementById('search-results-container').innerHTML = `
+                    <p class="text-xs text-gray-400 text-center py-8">친구의 닉네임을 입력하고 검색하세요.</p>
+                `;
+                document.getElementById('user-search-modal').classList.remove('hidden');
+            },
+
+            searchUsers: function() {
+                const query = document.getElementById('search-user-input').value.trim().toLowerCase();
+                const container = document.getElementById('search-results-container');
+
+                if (!query) {
+                    container.innerHTML = `<p class="text-xs text-red-400 text-center py-4">검색어를 입력해 주세요.</p>`;
+                    return;
+                }
+
+                const allUsers = Object.values(this.data.users);
+                const matches = allUsers.filter(u => u.uid !== this.user.uid && u.nickname && u.nickname.toLowerCase().includes(query));
+
+                if (matches.length === 0) {
+                    container.innerHTML = `<p class="text-xs text-gray-400 text-center py-8">일치하는 유저가 없습니다.</p>`;
+                    return;
+                }
+
+                container.innerHTML = matches.map(u => {
+                    const isFriend = this.isFriend(u.uid);
+                    const isOnline = (Date.now() - (u.lastSeen || 0)) < 60000;
+                    return `
+                        <div class="p-3 flex justify-between items-center hover:bg-white transition">
+                            <div class="flex items-center space-x-2">
+                                <span class="w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                                <span class="font-bold text-sm text-gray-800">${this.escapeHTML(u.nickname)}</span>
+                            </div>
+                            ${isFriend ? `
+                                <span class="text-xs text-gray-400 font-bold px-2 py-1 bg-gray-100 rounded">친구</span>
+                            ` : `
+                                <button onclick="app.addFriend('${u.uid}', '${this.escapeHTML(u.nickname)}')" class="dc-bg-blue text-white px-3 py-1 rounded text-xs font-bold hover:bg-indigo-800 transition">
+                                    <i class="fas fa-user-plus mr-1"></i> 추가
+                                </button>
+                            `}
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            addFriend: function(friendUid, friendNickname) {
+                if (this.user.isGuest) {
+                    this.showAlert("친구 추가는 로그인 후 이용하실 수 있습니다.");
+                    return;
+                }
+
+                const relId = [this.user.uid, friendUid].sort().join('_');
+                gun.get('dc_p2p_friends').get(relId).put({
+                    uids: [this.user.uid, friendUid],
+                    createdAt: Date.now()
+                });
+
+                this.showAlert(`${friendNickname}님이 친구로 추가되었습니다.`);
+                this.closeModal('user-search-modal');
+            },
+
+            isFriend: function(targetUid) {
+                return Object.values(this.data.friends).some(f => f.uids && f.uids.includes(this.user.uid) && f.uids.includes(targetUid));
+            },
+
+            renderFriendList: function() {
+                const container = document.getElementById('friend-list-container');
+                if (!container) return;
+
+                const myFriendRelations = Object.values(this.data.friends).filter(f => f.uids && f.uids.includes(this.user.uid));
+                const friendUids = myFriendRelations.map(f => f.uids.find(id => id !== this.user.uid));
+                const friendObjs = Object.values(this.data.users).filter(u => friendUids.includes(u.uid));
+
+                if (friendObjs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-6 text-xs text-gray-400">
+                            <i class="fas fa-user-friends text-2xl mb-1 block opacity-40"></i>
+                            등록된 친구가 없습니다.<br>'친구 검색'으로 친구를 찾아보세요!
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = friendObjs.map(f => {
+                    const isOnline = (Date.now() - (f.lastSeen || 0)) < 60000;
+                    return `
+                        <div class="p-2 border-b border-gray-100 flex items-center justify-between hover:bg-indigo-50/50 rounded transition">
+                            <button onclick="app.startDm('${f.uid}')" class="flex items-center space-x-2 text-left flex-grow truncate">
+                                <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 ${isOnline ? 'bg-green-500' : 'bg-gray-300'}"></span>
+                                <span class="text-xs font-bold text-gray-800 truncate">${this.escapeHTML(f.nickname)}</span>
+                            </button>
+                            <button onclick="app.startDm('${f.uid}')" title="1:1 채팅" class="text-indigo-600 hover:bg-indigo-100 p-1 rounded text-xs">
+                                <i class="fas fa-comment-dots"></i>
+                            </button>
+                        </div>
+                    `;
+                }).join('');
+            },
+
+            startDm: function(friendUid) {
+                const friend = this.data.users[friendUid];
+                if (!friend) return;
+                this.activeDmFriend = friend;
+                this.changeView('dm');
+            },
+
+            submitPost: function() {
+                const title = document.getElementById('write-title').value.trim();
+                const content = document.getElementById('write-content').value.trim();
+
+                if (!title || !content) {
+                    this.showAlert("제목과 내용을 모두 입력해주세요.");
+                    return;
+                }
+
+                const postId = 'post_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                gun.get('dc_p2p_posts').get(postId).put({
+                    id: postId,
+                    gallery: this.currentGallery,
+                    title: title,
+                    content: content,
+                    authorUid: this.user.uid,
+                    authorName: this.user.nickname,
+                    likes: 0,
+                    views: 1,
+                    createdAt: Date.now()
+                });
+
+                this.changeView('board');
+            },
+
+            deletePost: function(postId) {
+                this.showConfirm("정말로 이 게시글을 삭제하시겠습니까?", (confirmed) => {
+                    if (confirmed) {
+                        gun.get('dc_p2p_posts').get(postId).put(null);
+                        this.showAlert("게시글이 삭제되었습니다.");
+                        this.changeView('board');
+                    }
+                });
+            },
+
+            likePost: function(postId) {
+                const post = this.data.posts[postId];
+                if (!post) return;
+                gun.get('dc_p2p_posts').get(postId).get('likes').put((post.likes || 0) + 1);
+            },
+
+            submitComment: function(postId) {
+                const input = document.getElementById('comment-input');
+                const content = input.value.trim();
+                if (!content) return;
+
+                const commentId = 'cmt_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                gun.get('dc_p2p_comments').get(commentId).put({
+                    id: commentId,
+                    postId: postId,
+                    content: content,
+                    authorUid: this.user.uid,
+                    authorName: this.user.nickname,
+                    createdAt: Date.now()
+                });
+
+                input.value = '';
+            },
+
+            deleteComment: function(commentId) {
+                gun.get('dc_p2p_comments').get(commentId).put(null);
+            },
+
+            submitGlobalChat: function() {
+                const input = document.getElementById('global-chat-input');
+                const text = input.value.trim();
+                if (!text) return;
+
+                const msgId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+                gun.get('dc_p2p_chat').get(msgId).put({
+                    id: msgId,
+                    text: text,
+                    authorUid: this.user.uid,
+                    authorName: this.user.nickname,
+                    createdAt: Date.now()
+                });
+
+                input.value = '';
+            },
+
+            submitDm: function() {
+                if (!this.activeDmFriend) return;
+                const input = document.getElementById('dm-chat-input');
+                const text = input.value.trim();
+                if (!text) return;
+
+                const roomId = [this.user.uid, this.activeDmFriend.uid].sort().join('_');
+                const dmId = 'dm_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+
+                gun.get('dc_p2p_dms').get(dmId).put({
+                    id: dmId,
+                    chatRoomId: roomId,
+                    senderUid: this.user.uid,
+                    senderName: this.user.nickname,
+                    recipientUid: this.activeDmFriend.uid,
+                    text: text,
+                    createdAt: Date.now()
+                });
+
+                input.value = '';
+            },
+
+            openAuthModal: function() {
+                document.getElementById('auth-modal').classList.remove('hidden');
+            },
+
+            showAlert: function(msg) {
+                document.getElementById('custom-alert-msg').innerText = msg;
+                document.getElementById('custom-alert-modal').classList.remove('hidden');
+            },
+
+            showConfirm: function(msg, callback) {
+                document.getElementById('custom-confirm-msg').innerText = msg;
+                this.confirmCallback = callback;
+                document.getElementById('custom-confirm-modal').classList.remove('hidden');
+            },
+
+            handleConfirmResponse: function(result) {
+                document.getElementById('custom-confirm-modal').classList.add('hidden');
+                if (this.confirmCallback) {
+                    this.confirmCallback(result);
+                    this.confirmCallback = null;
+                }
+            },
+
+            closeModal: function(modalId) {
+                document.getElementById(modalId).classList.add('hidden');
+            },
+
+            formatDate: function(ts) {
+                if (!ts) return '';
+                const date = new Date(ts);
+                const now = new Date();
+                if (date.toDateString() === now.toDateString()) {
+                    return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+                }
+                return `${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')}`;
+            },
+
+            formatFullDate: function(ts) {
+                if (!ts) return '';
+                const d = new Date(ts);
+                return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+            },
+
+            formatTime: function(ts) {
+                if (!ts) return '';
+                const d = new Date(ts);
+                return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            },
+
+            escapeHTML: function(str) {
+                if (!str) return '';
+                return str.replace(/[&<>'"]/g, tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag));
+            }
+        };
+
+        // Bootstrap App
+        window.addEventListener('DOMContentLoaded', () => {
+            app.init();
+        });
+    </script>
+</body>
+</html>
